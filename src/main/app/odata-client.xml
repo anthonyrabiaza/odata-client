@@ -53,6 +53,6 @@ log.info("Properties are set")]]></scripting:script>
         </poll>
         <http:request config-ref="HTTP_Request_Configuration" path="${odata.path}customers" method="GET" doc:name="HTTPS"/>
         <set-payload value="#[message.payloadAs(java.lang.String)]" doc:name="Set Payload"/>
-        <logger message="Using HTTP #[xpath3('count(/*/*[position()&gt;4])',payload,'STRING')]" level="INFO" doc:name="Logger"/>
+        <logger message="Using HTTP #[xpath3('count(//*:entry)',payload,'STRING')]" level="INFO" doc:name="Logger"/>
     </flow>
 </mule>
