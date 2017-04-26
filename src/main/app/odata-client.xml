@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:mulexml="http://www.mulesoft.org/schema/mule/xml" xmlns:tls="http://www.mulesoft.org/schema/mule/tls" xmlns:quartz="http://www.mulesoft.org/schema/mule/quartz" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:scripting="http://www.mulesoft.org/schema/mule/scripting" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:odata="http://www.mulesoft.org/schema/mule/odata" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/odata http://www.mulesoft.org/schema/mule/odata/current/mule-odata.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
+http://www.mulesoft.org/schema/mule/scripting http://www.mulesoft.org/schema/mule/scripting/current/mule-scripting.xsd
+http://www.mulesoft.org/schema/mule/quartz http://www.mulesoft.org/schema/mule/quartz/current/mule-quartz.xsd
+http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/current/mule-tls.xsd
+http://www.mulesoft.org/schema/mule/xml http://www.mulesoft.org/schema/mule/xml/current/mule-xml.xsd">
+    <odata:config name="OData" serviceUri="${odata.endpoint}" doc:name="OData" formatType="ATOM"/>
+    <http:listener-config name="HTTP_Listener_Configuration" host="0.0.0.0" port="8091" doc:name="HTTP Listener Configuration"/>
+    <http:request-config name="HTTP_Request_Configuration" protocol="HTTPS" host="${odata.host}" port="${odata.port}"  doc:name="HTTP Request Configuration" tlsContext-ref="TLS_Context"/>
+    <tls:context name="TLS_Context" doc:name="TLS Context">
+        <tls:trust-store insecure="true"/>
+    </tls:context>
+    <flow name="OnStartup" initialState="started">
+        <quartz:inbound-endpoint jobName="OnInit" repeatInterval="86400000" repeatCount="0" responseTimeout="10000" doc:name="Quartz">
+            <quartz:event-generator-job groupName="A" jobGroupName="A"/>
+        </quartz:inbound-endpoint>
+        <choice doc:name="Choice">
+            <when expression="#[${ssl.acceptAll}==&quot;true&quot;]">
+                <scripting:component doc:name="Trust all">
+                    <scripting:script engine="Groovy"><![CDATA[new com.mulesoft.mule.tools.CustomTrustManager().execute(log);]]></scripting:script>
+                </scripting:component>
+            </when>
+            <otherwise>
+                <scripting:component doc:name="Truststore">
+                    <scripting:script engine="Groovy"><![CDATA[log.info("Setting up properties...")
+System.setProperty("javax.net.ssl.trustStore", Thread.currentThread().getContextClassLoader().getResource("cacerts_withself").getPath())
+System.setProperty("javax.net.ssl.trustStorePassword", "changeit")
+log.info("Properties are set")]]></scripting:script>
+                </scripting:component>
+            </otherwise>
+        </choice>
+    </flow>
+    <flow name="odataFlow">
+        <poll doc:name="Poll">
+            <fixed-frequency-scheduler frequency="2" timeUnit="MINUTES"/>
+            <expression-component doc:name="Expression"><![CDATA[flowVars.test = 1;]]></expression-component>
+        </poll>
+        <odata:get-entities config-ref="OData" entitySetName="customers" doc:name="OData"/>
+        <logger level="INFO" doc:name="Logger" message="Using OData #[payload.size()]"/>
+    </flow>
+    <flow name="httpFlow">
+        <poll doc:name="Poll">
+            <fixed-frequency-scheduler frequency="2" timeUnit="MINUTES"/>
+            <expression-component doc:name="Expression"><![CDATA[flowVars.test = 1;]]></expression-component>
+        </poll>
+        <http:request config-ref="HTTP_Request_Configuration" path="${odata.path}customers" method="GET" doc:name="HTTPS"/>
+        <set-payload value="#[message.payloadAs(java.lang.String)]" doc:name="Set Payload"/>
+        <logger message="Using HTTP #[xpath3('count(/*/*[position()&gt;4])',payload,'STRING')]" level="INFO" doc:name="Logger"/>
+    </flow>
+</mule>
