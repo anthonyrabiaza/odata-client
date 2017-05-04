@@ -12,12 +12,15 @@ http://www.mulesoft.org/schema/mule/scripting http://www.mulesoft.org/schema/mul
 http://www.mulesoft.org/schema/mule/quartz http://www.mulesoft.org/schema/mule/quartz/current/mule-quartz.xsd
 http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/current/mule-tls.xsd
 http://www.mulesoft.org/schema/mule/xml http://www.mulesoft.org/schema/mule/xml/current/mule-xml.xsd">
-    <odata:config name="OData" serviceUri="${odata.endpoint}" doc:name="OData" formatType="ATOM"/>
+    <odata:config name="OData" serviceUri="${odata.endpoint}" doc:name="OData" formatType="ATOM" consumerFactory-ref="customODataFty"/>
     <http:listener-config name="HTTP_Listener_Configuration" host="0.0.0.0" port="8091" doc:name="HTTP Listener Configuration"/>
     <http:request-config name="HTTP_Request_Configuration" protocol="HTTPS" host="${odata.host}" port="${odata.port}"  doc:name="HTTP Request Configuration" tlsContext-ref="TLS_Context"/>
     <tls:context name="TLS_Context" doc:name="TLS Context">
         <tls:trust-store insecure="true"/>
     </tls:context>
+    <spring:beans>
+      <spring:bean class="com.mulesoft.mule.tools.odata.CustomODataConsumerFactoryImpl" name="customODataFty" id="customODataFty"/>
+	</spring:beans>
     <flow name="OnStartup" initialState="started">
         <quartz:inbound-endpoint jobName="OnInit" repeatInterval="86400000" repeatCount="0" responseTimeout="10000" doc:name="Quartz">
             <quartz:event-generator-job groupName="A" jobGroupName="A"/>
@@ -43,7 +46,7 @@ log.info("Properties are set")]]></scripting:script>
             <fixed-frequency-scheduler frequency="2" timeUnit="MINUTES"/>
             <expression-component doc:name="Expression"><![CDATA[flowVars.test = 1;]]></expression-component>
         </poll>
-        <odata:get-entities config-ref="OData" entitySetName="customers" doc:name="OData"/>
+        <odata:get-entities config-ref="OData"  doc:name="OData" entitySetName="customers" password="88888888" username="Bearer" serviceUri="${odata.endpoint}"/>
         <logger level="INFO" doc:name="Logger" message="Using OData #[payload.size()]"/>
     </flow>
     <flow name="httpFlow">
@@ -51,6 +54,9 @@ log.info("Properties are set")]]></scripting:script>
             <fixed-frequency-scheduler frequency="2" timeUnit="MINUTES"/>
             <expression-component doc:name="Expression"><![CDATA[flowVars.test = 1;]]></expression-component>
         </poll>
+        <message-properties-transformer doc:name="Message Properties">
+            <add-message-property key="Authorization" value="Bearer 999"/>
+        </message-properties-transformer>
         <http:request config-ref="HTTP_Request_Configuration" path="${odata.path}customers" method="GET" doc:name="HTTPS"/>
         <set-payload value="#[message.payloadAs(java.lang.String)]" doc:name="Set Payload"/>
         <logger message="Using HTTP #[xpath3('count(//*:entry)',payload,'STRING')]" level="INFO" doc:name="Logger"/>
