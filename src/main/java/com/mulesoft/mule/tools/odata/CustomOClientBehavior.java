@@ -15,6 +15,11 @@ public class CustomOClientBehavior implements OClientBehavior {
 	@Override
 	public ODataClientRequest transform(ODataClientRequest request) {
 		System.out.println("************DEBUG CustomOClientBehavior**************");
+		if("MERGE".equals(request.getHeaders().get("X-HTTP-METHOD"))){
+			//Overridding POST method to PUT
+			request = request.method("PUT");
+			System.out.println("************DEBUG CustomOClientBehavior Putting PUT **************");
+		}
 		return request.header("Authorization", authorizationType + " " + token);
 	}
 }

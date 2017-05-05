@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<mule xmlns:mulexml="http://www.mulesoft.org/schema/mule/xml" xmlns:tls="http://www.mulesoft.org/schema/mule/tls" xmlns:quartz="http://www.mulesoft.org/schema/mule/quartz" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:scripting="http://www.mulesoft.org/schema/mule/scripting" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:odata="http://www.mulesoft.org/schema/mule/odata" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+<mule xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:mulexml="http://www.mulesoft.org/schema/mule/xml" xmlns:tls="http://www.mulesoft.org/schema/mule/tls" xmlns:quartz="http://www.mulesoft.org/schema/mule/quartz" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:scripting="http://www.mulesoft.org/schema/mule/scripting" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:odata="http://www.mulesoft.org/schema/mule/odata" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
 	xmlns:spring="http://www.springframework.org/schema/beans" 
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
@@ -11,7 +11,9 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
 http://www.mulesoft.org/schema/mule/scripting http://www.mulesoft.org/schema/mule/scripting/current/mule-scripting.xsd
 http://www.mulesoft.org/schema/mule/quartz http://www.mulesoft.org/schema/mule/quartz/current/mule-quartz.xsd
 http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/current/mule-tls.xsd
-http://www.mulesoft.org/schema/mule/xml http://www.mulesoft.org/schema/mule/xml/current/mule-xml.xsd">
+http://www.mulesoft.org/schema/mule/xml http://www.mulesoft.org/schema/mule/xml/current/mule-xml.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd">
     <odata:config name="OData" serviceUri="${odata.endpoint}" doc:name="OData" formatType="ATOM" consumerFactory-ref="customODataFty"/>
     <http:listener-config name="HTTP_Listener_Configuration" host="0.0.0.0" port="8091" doc:name="HTTP Listener Configuration"/>
     <http:request-config name="HTTP_Request_Configuration" protocol="HTTPS" host="${odata.host}" port="${odata.port}"  doc:name="HTTP Request Configuration" tlsContext-ref="TLS_Context"/>
@@ -43,13 +45,37 @@ log.info("Properties are set")]]></scripting:script>
     </flow>
     <flow name="odataFlow">
         <poll doc:name="Poll">
-            <fixed-frequency-scheduler frequency="2" timeUnit="MINUTES"/>
+            <fixed-frequency-scheduler frequency="10" timeUnit="MINUTES"/>
             <expression-component doc:name="Expression"><![CDATA[flowVars.test = 1;]]></expression-component>
         </poll>
-        <odata:get-entities config-ref="OData"  doc:name="OData" entitySetName="customers" password="88888888" username="Bearer" serviceUri="${odata.endpoint}"/>
-        <logger level="INFO" doc:name="Logger" message="Using OData #[payload.size()]"/>
+        <odata:get-entities config-ref="OData" entitySetName="customers" returnClass="com.mulesoft.odataclient.pojo.Customer" username="Bearer" password="88888888" serviceUri="${odata.endpoint}" doc:name="OData Get" filter="customerID eq 'ANTON' or customerID eq 'AROUT'"/>
+        <dw:transform-message doc:name="Transform Message" metadata:id="ac157c5e-1e39-4849-b541-d39ee7ef3f02">
+            <dw:input-payload mimeType="application/java"/>
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload map ((payload01 , indexOfPayload01) -> {
+	companyName: payload01.companyName,
+	contactName: payload01.contactName,
+	contactTitle: payload01.contactTitle,
+	customerID: payload01.customerID ++ '8'
+} as :object {
+	class : "com.mulesoft.odataclient.pojo.Customer"
+})]]></dw:set-payload>
+        </dw:transform-message>
+        <!-- flow-ref name="odata-clientSub_Flow" doc:name="odata-clientSub_Flow"/ -->
+        <odata:batch config-ref="OData"   username="Bearer" password="88888888" serviceUri="${odata.endpoint}" doc:name="OData Batch">
+			<odata:create-entity config-ref="OData" entitySetName="customers"  username="Bearer" password="88888888" serviceUri="${odata.endpoint}" doc:name="OData Customer Create 1" entity-ref="#[payload.get(0)]"/>
+        	<odata:create-entity config-ref="OData" entitySetName="customers"  username="Bearer" password="88888888" serviceUri="${odata.endpoint}" doc:name="OData Customer Create 2" entity-ref="#[payload.get(1)]"/>
+        </odata:batch>
+        
+        <logger level="INFO" doc:name="Logger" message="Using OData #[payload]"/>
     </flow>
-    <flow name="httpFlow">
+    <sub-flow name="oDataBatch_CopyFrom">
+        <odata:create-entity config-ref="OData" entitySetName="customers"  username="Bearer" password="88888888" serviceUri="${odata.endpoint}" doc:name="OData Customer Create 1" entity-ref="#[payload.get(0)]"/>
+        <odata:create-entity config-ref="OData" entitySetName="customers"  username="Bearer" password="88888888" serviceUri="${odata.endpoint}" doc:name="OData Customer Create 2" entity-ref="#[payload.get(1)]"/>
+    </sub-flow>
+    <flow name="httpFlow" initialState="stopped">
         <poll doc:name="Poll">
             <fixed-frequency-scheduler frequency="2" timeUnit="MINUTES"/>
             <expression-component doc:name="Expression"><![CDATA[flowVars.test = 1;]]></expression-component>
