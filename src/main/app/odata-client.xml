@@ -49,6 +49,7 @@ log.info("Properties are set")]]></scripting:script>
             <expression-component doc:name="Expression"><![CDATA[flowVars.test = 1;]]></expression-component>
         </poll>
         <odata:get-entities config-ref="OData" entitySetName="customers" returnClass="com.mulesoft.odataclient.pojo.Customer" username="Bearer" password="88888888" serviceUri="${odata.endpoint}" doc:name="OData Get" filter="customerID eq 'ANTON' or customerID eq 'AROUT'"/>
+        <logger message="Using OData Get, # elements #[payload.size()]" level="INFO" doc:name="Logger"/>
         <dw:transform-message doc:name="Transform Message" metadata:id="ac157c5e-1e39-4849-b541-d39ee7ef3f02">
             <dw:input-payload mimeType="application/java"/>
             <dw:set-payload><![CDATA[%dw 1.0
@@ -65,15 +66,19 @@ payload map ((payload01 , indexOfPayload01) -> {
         </dw:transform-message>
         <!-- flow-ref name="odata-clientSub_Flow" doc:name="odata-clientSub_Flow"/ -->
         <odata:batch config-ref="OData"   username="Bearer" password="88888888" serviceUri="${odata.endpoint}" doc:name="OData Batch">
-			<odata:create-entity config-ref="OData" entitySetName="customers"  username="Bearer" password="88888888" serviceUri="${odata.endpoint}" doc:name="OData Customer Create 1" entity-ref="#[payload.get(0)]"/>
-        	<odata:create-entity config-ref="OData" entitySetName="customers"  username="Bearer" password="88888888" serviceUri="${odata.endpoint}" doc:name="OData Customer Create 2" entity-ref="#[payload.get(1)]"/>
+			<foreach collection="#[payload]" doc:name="For Each">
+	            <odata:create-entity config-ref="OData" entitySetName="customers" doc:name="OData"/>
+	        </foreach>
         </odata:batch>
-        
-        <logger level="INFO" doc:name="Logger" message="Using OData #[payload]"/>
     </flow>
-    <sub-flow name="oDataBatch_CopyFrom">
+    <sub-flow name="oDataBatch_CopyFrom_TwoCreation">
         <odata:create-entity config-ref="OData" entitySetName="customers"  username="Bearer" password="88888888" serviceUri="${odata.endpoint}" doc:name="OData Customer Create 1" entity-ref="#[payload.get(0)]"/>
         <odata:create-entity config-ref="OData" entitySetName="customers"  username="Bearer" password="88888888" serviceUri="${odata.endpoint}" doc:name="OData Customer Create 2" entity-ref="#[payload.get(1)]"/>
+    </sub-flow>
+    <sub-flow name="oDataBatch_CopyFrom_Create">
+        <foreach collection="#[payload]" doc:name="For Each">
+            <odata:create-entity config-ref="OData" entitySetName="customers" doc:name="OData"/>
+        </foreach>
     </sub-flow>
     <flow name="httpFlow" initialState="stopped">
         <poll doc:name="Poll">
@@ -85,6 +90,6 @@ payload map ((payload01 , indexOfPayload01) -> {
         </message-properties-transformer>
         <http:request config-ref="HTTP_Request_Configuration" path="${odata.path}customers" method="GET" doc:name="HTTPS"/>
         <set-payload value="#[message.payloadAs(java.lang.String)]" doc:name="Set Payload"/>
-        <logger message="Using HTTP #[xpath3('count(//*:entry)',payload,'STRING')]" level="INFO" doc:name="Logger"/>
+        <logger message="Using HTTP, # elements #[xpath3('count(//*:entry)',payload,'STRING')]" level="INFO" doc:name="Logger"/>
     </flow>
 </mule>
