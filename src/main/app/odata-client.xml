@@ -14,7 +14,7 @@ http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/
 http://www.mulesoft.org/schema/mule/xml http://www.mulesoft.org/schema/mule/xml/current/mule-xml.xsd
 http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
 http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd">
-    <odata:config name="OData" serviceUri="${odata.endpoint}" doc:name="OData" formatType="ATOM" consumerFactory-ref="customODataFty" password="admin" username="admin"/>
+    <odata:config name="OData" serviceUri="${odata.endpoint}" doc:name="OData" formatType="ATOM" consumerFactory-ref="customODataFty" password="admin" username="admin" namingFormat="UPPER_CAMEL_CASE"/>
     <http:listener-config name="HTTP_Listener_Configuration" host="0.0.0.0" port="8091" doc:name="HTTP Listener Configuration"/>
     <http:request-config name="HTTP_Request_Configuration" protocol="HTTPS" host="${odata.host}" port="${odata.port}"  doc:name="HTTP Request Configuration" tlsContext-ref="TLS_Context"/>
     <tls:context name="TLS_Context" doc:name="TLS Context">
