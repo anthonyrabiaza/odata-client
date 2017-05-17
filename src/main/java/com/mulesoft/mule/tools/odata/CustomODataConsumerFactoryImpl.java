@@ -8,6 +8,9 @@ import org.odata4j.format.FormatType;
 import org.odata4j.jersey.consumer.ODataJerseyConsumer;
 import org.odata4j.jersey.consumer.ODataJerseyConsumer.Builder;
 
+/**
+ * @author anthony.rabiaza@mulesoft.com
+ */
 public class CustomODataConsumerFactoryImpl implements ODataConsumerFactory {
 
 	@Override
